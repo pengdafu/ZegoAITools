@@ -138,10 +138,6 @@
             //   type: 1,
             //   content: this.keyword,
             // })
-            this.msgList = [{
-              type: 1,
-              content: "请稍等...",
-            }]
             this.msgList.push({
               type: 'loading',
             })
@@ -196,6 +192,12 @@
                 chatContent.scrollTop = 10000000
               })
             }
+          },
+          async cleanPreResponse(content) {
+            this.msgList = [{
+              type: 1,
+              content: content+"",
+            }]
           },
         },
         mounted() {
