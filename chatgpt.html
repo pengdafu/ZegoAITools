@@ -194,6 +194,9 @@
             }
           },
         },
+        mounted() {
+          window.toSearch = this.toSearch
+        },
       })
       // 挂载
       app.mount('#app')
