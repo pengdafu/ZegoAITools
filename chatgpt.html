@@ -125,16 +125,19 @@
           return {
             count: 0,
             keyword: '',
-            msgList: [],
+            msgList: [{
+              type: 1,
+              content: "请等待结果...",
+            }],
           }
         },
         methods: {
           onScroll() {},
           async toSearch(res) {
-            this.msgList.push({
-              type: 1,
-              content: this.keyword,
-            })
+            // this.msgList.push({
+            //   type: 1,
+            //   content: this.keyword,
+            // })
             this.msgList.push({
               type: 'loading',
             })
