@@ -239,10 +239,118 @@
               content: content+"",
             }]
           },
+          async streaming(chunk, id) {
+            if (this.msgList[0].content !== "已为你生成答案") {
+              this.msgList = [{
+                type: 1,
+                content: "已为你生成答案",
+              }, {
+                type: 2,
+                content: '',
+                alltext: '',
+                str_: '',
+                i : 0,
+                id: id,
+              }]
+            } else if (this.msgList.length === 1) {
+              this.msgList.push({
+                type: 2,
+                content: '',
+                alltext: '',
+                str_: '',
+                i: 0,
+                id: id,
+                done: false,
+                strforcode: '',
+              })
+            } else if (this.msgList[1].id !== id) {
+              this.msgList[1] = {
+                type: 2,
+                content: '',
+                alltext: '',
+                str_: '',
+                i: 0,
+                id: id,
+                done: false,
+                strforcode: '',
+              }
+            }
+            if (this.msgList[1].done) {
+              return
+            }
+
+            const converter = new showdown.Converter()
+            if (!this.msgList[1].timer) {
+              this.msgList[1].timer = setInterval(() => {
+                let alltext = this.msgList[1].alltext
+                let i = this.msgList[1].i
+                let str_ = this.msgList[1].str_
+                let strforcode = this.msgList[1].strforcode
+
+                alltext = alltext.replace(/\\n/g, '\n')
+
+                if (str_.length < alltext.length) {
+                  str_ += alltext[i++]
+                  strforcode = str_ + '_'
+                  if (str_.split('```').length % 2 === 0) {
+                    strforcode += '\n```\n'
+                  }
+                }
+
+                if (str_.length >= alltext.length && this.msgList[1].done) {
+                  clearInterval(this.msgList[1].timer)
+                  this.msgList[1].timer = undefined
+                  strforcode = str_
+                }
+
+                this.msgList[1].content = converter.makeHtml(strforcode)
+                let that = this
+                this.$nextTick(() => {
+                  hljs.highlightAll()
+
+                  ;[...document.getElementsByTagName('pre')].forEach((item) => {
+                    item.style.position = 'relative'
+                    let copyButton = document.createElement('button')
+                    copyButton.style.cssText =
+                      'border-radius: 4px;position:absolute;right:10px;top:10px;cursor: pointer'
+                    copyButton.innerHTML = 'Copy code'
+                    copyButton.onclick = function () {
+                      let copyData = item.firstChild.innerText
+                      that.copyToClipboard(copyData)
+                      copyButton.innerHTML = 'Copied!'
+                      setTimeout(function () {
+                        copyButton.innerHTML = 'Copy code'
+                      }, 1000)
+                    }
+                    item.appendChild(copyButton)
+                  })
+                })
+                const chatContent = document.getElementById('chat-content')
+                chatContent.scrollTop = 10000000
+
+                this.msgList[1].str_ = str_
+                this.msgList[1].i = i
+                this.msgList[1].alltext = alltext
+                this.msgList[1].strforcode = strforcode
+              }, 30)
+            }
+
+            if (chunk === '[DONE]') {
+              this.msgList[1].done = true
+              return
+            } 
+
+            if (this.msgList[1].alltext === '') {
+              this.msgList[1].alltext = chunk.replace(/^\n+/, '')
+            } else {
+              this.msgList[1].alltext += chunk
+            }
+          }
         },
         mounted() {
           window.toSearch = this.toSearch
           window.cleanPreResponse = this.cleanPreResponse
+          window.streaming = this.streaming
         },
       })
       // 挂载
