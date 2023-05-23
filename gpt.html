@@ -68,12 +68,18 @@
         width: 100px;
         height: auto;
       }
+      pre {
+        position: relative;
+      }
     </style>
   </head>
   <body>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/styles/default.min.css"
+    />
     <!-- <script src="https://cdn.bootcdn.net/ajax/libs/highlight.js/11.7.0/es/core.min.js"></script> -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.5.0/highlight.min.js"></script>
     <div id="app">
@@ -127,20 +133,37 @@
             keyword: '',
             msgList: [{
               type: 1,
-              content: "请稍等...",
+              content: "网页加载中，请稍等...",
             }],
           }
         },
         methods: {
           onScroll() {},
+          copyToClipboard(content) {
+            if (window.clipboardData) {
+              window.clipboardData.setData('text', content)
+            } else {
+              ;(function (content) {
+                document.oncopy = function (e) {
+                  e.clipboardData.setData('text', content)
+                  e.preventDefault()
+                  document.oncopy = null
+                }
+              })(content)
+              document.execCommand('Copy')
+            }
+          },
           async toSearch(res) {
             // this.msgList.push({
             //   type: 1,
             //   content: this.keyword,
             // })
-            this.msgList.push({
+            this.msgList = [{
+              type: 1,
+              content: "已为你生成答案",
+            }, {
               type: 'loading',
-            })
+            }]
             const chatContent = document.getElementById('chat-content')
             setTimeout(() => {
               chatContent.scrollTop = 10000000
@@ -149,7 +172,6 @@
               .map((i) => i.type)
               .indexOf('loading')
             try {
-            //   let res = "以下为一个简单的Vue.js的demo：\n\nHTML：\n\n```html\n<div id=\"app\">\n  <p>{{ message }}<\/p>\n  <button v-on:click=\"reverseMessage\">Reverse Message<\/button>\n<\/div>\n```\n\nJavaScript：\n\n```javascript\nvar app = new Vue({\n  el: '#app',\n  data: {\n    message: 'Hello Vue!'\n  },\n  methods: {\n    reverseMessage: function () {\n      this.message = this.message.split('').reverse().join('')\n    }\n  }\n})\n```\n\n效果：\n\n初始状态：\n\n```\nHello Vue!\n[Reverse Message]\n```\n\n点击按钮后：\n\n```\n!euV olleH\n[Reverse Message]\n```\n\n以上demo中，我们创建了一个Vue实例，将其绑定在id为`app`的元素上。在`data`中定义了一个属性`message`，在HTML中使用了`{{ message }}`的语法将其渲染出来。\n\n同时，在`methods`中定义了一个方法`reverseMessage`，当点击按钮时，会调用这个方法，将`message`反转并重新赋值给它。\n\n总体来说，Vue.js的核心思想就是将数据和视图进行绑定，实现了前端开发中数据和视图的同步更新。" // TODO: 获取GPT接口
               let str_ = ''
               let i = 0
               let alltext = res.replace(/^\n+/, '')
@@ -175,9 +197,27 @@
                   }
                   this.msgList[messageIndex] = msg
                 })
+                let that = this
                 setTimeout(() => {
                   hljs.highlightAll()
                   chatContent.scrollTop = 10000000
+
+                  ;[...document.getElementsByTagName('pre')].forEach((item) => {
+                    item.style.position = 'relative'
+                    let copyButton = document.createElement('button')
+                    copyButton.style.cssText =
+                      'border-radius: 4px;position:absolute;right:10px;top:10px;cursor: pointer'
+                    copyButton.innerHTML = 'Copy code'
+                    copyButton.onclick = function () {
+                      let copyData = item.firstChild.innerText
+                      that.copyToClipboard(copyData)
+                      copyButton.innerHTML = 'Copied!'
+                      setTimeout(function () {
+                        copyButton.innerHTML = 'Copy code'
+                      }, 1000)
+                    }
+                    item.appendChild(copyButton)
+                  })
                 })
               }, 20)
             } catch (error) {
