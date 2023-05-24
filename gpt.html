@@ -154,10 +154,6 @@
             }
           },
           async toSearch(res) {
-            // this.msgList.push({
-            //   type: 1,
-            //   content: this.keyword,
-            // })
             this.msgList = [{
               type: 1,
               content: "已为你生成答案",
@@ -193,7 +189,11 @@
                 setTimeout(() => {
                   let msg = {
                     type: 2,
-                    content: converter.makeHtml(strforcode),
+                    content: converter.makeHtml(strforcode
+                      .replace(/\t/g, 'ZZXXTABS')
+                      .replace(/    /g, 'ZZXXSPACE')
+                      ).replace(/ZZXXTABS/g, '\t')
+                      .replace(/ZZXXSPACE/g, '    '),
                   }
                   this.msgList[messageIndex] = msg
                 })
@@ -303,7 +303,11 @@
                   strforcode = str_
                 }
 
-                this.msgList[1].content = converter.makeHtml(strforcode)
+                this.msgList[1].content = converter.makeHtml(strforcode
+                  .replace(/\t/g, 'ZZXXTABS')
+                  .replace(/    /g, 'ZZXXSPACE')
+                  ).replace(/ZZXXTABS/g, '\t')
+                  .replace(/ZZXXSPACE/g, '    ')
                 let that = this
                 this.$nextTick(() => {
                   hljs.highlightAll()
