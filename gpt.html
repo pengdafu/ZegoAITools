@@ -10,11 +10,16 @@
         position: absolute;
         bottom: calc(52px + constant(safe-area-inset-bottom));
         bottom: calc(52px + env(safe-area-inset-bottom));
-        width: 50vw;
-        max-width: 50vw;
-        left: 50%;
-        margin-left: -25vw;
+        width: 90vw;
+        max-width: 90vw;
+        left: 20%;
+        margin-left: -15vw;
         box-sizing: border-box;
+      }
+
+      .chat-body {
+          /* height:70vh;
+          overflow-y:auto; */
       }
 
       .answer-item {
@@ -33,8 +38,8 @@
       }
       .answer-content {
         overflow-y: auto;
-        max-height: calc(100vh - 0px - constant(safe-area-inset-bottom));
-        max-height: calc(100vh - 0px - env(safe-area-inset-bottom));
+        max-height: calc(100vh - 180px - constant(safe-area-inset-bottom));
+        max-height: calc(100vh - 180px - env(safe-area-inset-bottom));
         position: relative;
       }
       .answer-content::-webkit-scrollbar {
@@ -72,13 +77,19 @@
         position: relative;
       }
       body {
-        height: 100vh;
-        background: #fafafa; 
+        /* height: 100vh; */
+        background: #fafafa;
       }
     </style>
+    <!-- Import style -->
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+    <!-- Import Vue 3 -->
+    <script src="https://unpkg.com/vue@3"></script>
+    <!-- Import component library -->
+    <script src="https://unpkg.com/element-plus"></script>
+    <script src="https://unpkg.com/@element-plus/icons-vue"></script>
   </head>
   <body>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     <link
       rel="stylesheet"
@@ -109,22 +120,28 @@
           </div>
         </div>
       </div>
-<!--      <div class="footer-wrap">-->
-<!--        <div class="footer-input-wrap">-->
-<!--          <input-->
-<!--            type="text"-->
-<!--            class="form-control"-->
-<!--            v-model="keyword"-->
-<!--            placeholder="来问点什么吧"-->
-<!--            @keyup.enter="toSearch"-->
-<!--          />-->
-<!--          <div class="form-buttons">-->
-<!--            <button class="btn btn-primary send-btn" @click="toSearch">-->
-<!--              发送-->
-<!--            </button>-->
-<!--          </div>-->
-<!--        </div>-->
-<!--      </div>-->
+      <div class="footer-wrap">
+        <div class="footer-input-wrap " style="display: flex; align-items:flex-end;">
+          <el-button type="primary" round="true" onclick="cleanPreResponse('有什么可以帮助你？')">
+            <el-icon><Delete /></el-icon>
+          </el-button>
+          <span style="width: 2px"></span>
+          <el-input
+                  v-model="keyword"
+                  :autosize="{ minRows: 1, maxRows: 5,  }"
+                  type="textarea"
+                  resize="none"
+                  :input-style="{ borderRadius: '14px' }"
+                  @keydown.enter.exact="handleEnterKey"
+                  @keyup.enter.exact="ask"
+                  placeholder="问点什么吧">
+          </el-input>
+          <span style="width: 2px"></span>
+          <el-button type="primary" round="true" onclick="ask()" :disabled="isAsking">
+            <el-icon><Right /></el-icon>
+          </el-button>
+        </div>
+      </div>
     </div>
     <script>
       //组件
@@ -135,14 +152,51 @@
           return {
             count: 0,
             keyword: '',
+            isAsking: false,
             msgList: [{
               type: 1,
-              content: "等待输入指令...",
+              content: "有什么可以帮助你？",
             }],
           }
         },
         methods: {
           onScroll() {},
+          handleEnterKey(event) {
+              event.preventDefault();
+              return false;
+          },
+          async ask() {
+            if (this.keyword === "") {
+                return
+            }
+            if (this.isAsking) {
+                return // 没有操作完静默发送
+            }
+            this.isAsking = true
+            let item = {
+              type: 1,
+              content: this.keyword
+            }
+            this.keyword = ''
+            if (this.msgList.length === 1) {
+              this.msgList[0] = item
+            } else {
+              this.msgList.push(item)
+            }
+
+            setTimeout(() => {
+                const chatContent = document.getElementById('chat-content')
+                chatContent.scrollTop = 10000000
+            }, 30)
+
+            let params = [];
+            for (let i = 0; i < this.msgList.length; i++) {
+              item = this.msgList[i]
+              params.push(item.alltext || item.content)
+            }
+            await JavaPanelBridge.callJava(params)
+            this.isAsking = false
+          },
           copyToClipboard(content) {
             if (window.clipboardData) {
               window.clipboardData.setData('text', content)
@@ -157,120 +211,28 @@
               document.execCommand('Copy')
             }
           },
-          async toSearch(res) {
-            this.msgList = [{
-              type: 1,
-              content: "已为你生成答案",
-            }, {
-              type: 'loading',
-            }]
-            const chatContent = document.getElementById('chat-content')
-            setTimeout(() => {
-              chatContent.scrollTop = 10000000
-            }, 100)
-            const messageIndex = this.msgList
-              .map((i) => i.type)
-              .indexOf('loading')
-            try {
-              let str_ = ''
-              let i = 0
-              let alltext = res.replace(/^\n+/, '')
-              let strforcode = ''
-              const converter = new showdown.Converter()
-              timer = setInterval(() => {
-                alltext = alltext.replace(/\\n/g, '\n')
-                if (str_.length < alltext.length) {
-                  str_ += alltext[i++]
-                  strforcode = str_ + '_'
-                  if (str_.split('```').length % 2 === 0) {
-                    strforcode += '\n```\n'
-                  }
-                }
-                if (str_.length >= alltext.length) {
-                  clearInterval(timer)
-                  strforcode = str_
-                }
-                setTimeout(() => {
-                  let msg = {
-                    type: 2,
-                    content: converter.makeHtml(strforcode
-                      .replace(/\t/g, 'ZZXXTABS')
-                      .replace(/    /g, 'ZZXXSPACE')
-                      ).replace(/ZZXXTABS/g, '\t')
-                      .replace(/ZZXXSPACE/g, '    '),
-                  }
-                  this.msgList[messageIndex] = msg
-                })
-                let that = this
-                setTimeout(() => {
-                  hljs.highlightAll()
-                  chatContent.scrollTop = 10000000
-
-                  ;[...document.getElementsByTagName('pre')].forEach((item) => {
-                    item.style.position = 'relative'
-                    let copyButton = document.createElement('button')
-                    copyButton.style.cssText =
-                      'border-radius: 4px;position:absolute;right:10px;top:10px;cursor: pointer'
-                    copyButton.innerHTML = 'Copy code'
-                    copyButton.onclick = function () {
-                      let copyData = item.firstChild.innerText
-                      that.copyToClipboard(copyData)
-                      copyButton.innerHTML = 'Copied!'
-                      setTimeout(function () {
-                        copyButton.innerHTML = 'Copy code'
-                      }, 1000)
-                    }
-                    item.appendChild(copyButton)
-                  })
-                })
-              }, 20)
-            } catch (error) {
-              setTimeout(() => {
-                let msg = {
-                  type: 2,
-                  content: error.message,
-                }
-                this.msgList[messageIndex] = msg
-              })
-              setTimeout(() => {
-                chatContent.scrollTop = 10000000
-              })
-            }
-          },
           async cleanPreResponse(content) {
             this.msgList = [{
               type: 1,
               content: content+"",
             }]
+            this.isAsking = false
+          },
+          callJavaErr(code, msg) {
+            this.isAsking = true
+            this.$notify({
+                title: 'request error',
+                message: 'errCode: '+code + ', errMsg: ' + msg,
+                type: 'error',
+                duration: 3000
+            });
           },
           async streaming(chunk, id) {
-            if (this.msgList[0].content !== "已为你生成答案") {
-              this.msgList = [{
-                type: 1,
-                content: "已为你生成答案",
-              }, {
+            let itemIndex = this.msgList.findIndex(item => item.id === id)
+            if (itemIndex === -1) {
+              const item = {
                 type: 2,
-                content: '',
-                alltext: '',
-                str_: '',
-                i : 0,
-                id: id,
-              }]
-            } else if (this.msgList.length === 1) {
-              this.msgList.push({
-                type: 2,
-                content: '',
-                alltext: '',
-                str_: '',
-                i: 0,
-                id: id,
-                done: false,
-                strforcode: '',
-              })
-            } else if (this.msgList[1].id !== id) {
-              this.msgList[1] = {
-                type: 2,
-                content: '',
+                content: 'test',
                 alltext: '',
                 str_: '',
                 i: 0,
@@ -278,36 +240,38 @@
                 done: false,
                 strforcode: '',
               }
+              this.msgList.push(item)
+              itemIndex = this.msgList.length-1
             }
-            if (this.msgList[1].done) {
+            if (this.msgList[itemIndex].done) {
               return
             }
 
             const converter = new showdown.Converter()
-            if (!this.msgList[1].timer) {
-              this.msgList[1].timer = setInterval(() => {
-                let alltext = this.msgList[1].alltext
-                let i = this.msgList[1].i
-                let str_ = this.msgList[1].str_
-                let strforcode = this.msgList[1].strforcode
+            if (!this.msgList[itemIndex].timer) {
+              this.msgList[itemIndex].timer = setInterval(() => {
+                let alltext = this.msgList[itemIndex].alltext
+                let i = this.msgList[itemIndex].i
+                let str_ = this.msgList[itemIndex].str_
+                let strforcode = this.msgList[itemIndex].strforcode
 
                 alltext = alltext.replace(/\\n/g, '\n')
 
-                if (str_.length < alltext.length) {
-                  str_ += alltext[i++]
+                for (;i < alltext.length; i++) {
+                  str_ += alltext[i]
                   strforcode = str_ + '_'
                   if (str_.split('```').length % 2 === 0) {
                     strforcode += '\n```\n'
                   }
                 }
 
-                if (str_.length >= alltext.length && this.msgList[1].done) {
-                  clearInterval(this.msgList[1].timer)
-                  this.msgList[1].timer = undefined
+                if (str_.length >= alltext.length && this.msgList[itemIndex].done) {
+                  clearInterval(this.msgList[itemIndex].timer)
+                  this.msgList[itemIndex].timer = undefined
                   strforcode = str_
                 }
 
-                this.msgList[1].content = converter.makeHtml(strforcode
+                this.msgList[itemIndex].content = converter.makeHtml(strforcode
                   .replace(/\t/g, 'ZZXXTABS')
                   .replace(/    /g, 'ZZXXSPACE')
                   ).replace(/ZZXXTABS/g, '\t')
@@ -336,22 +300,22 @@
                 const chatContent = document.getElementById('chat-content')
                 chatContent.scrollTop = 10000000
 
-                this.msgList[1].str_ = str_
-                this.msgList[1].i = i
-                this.msgList[1].alltext = alltext
-                this.msgList[1].strforcode = strforcode
-              }, 30)
+                this.msgList[itemIndex].str_ = str_
+                this.msgList[itemIndex].i = i
+                this.msgList[itemIndex].alltext = alltext
+                this.msgList[itemIndex].strforcode = strforcode
+              }, 100)
             }
 
             if (chunk === '[DONE]') {
-              this.msgList[1].done = true
+              this.msgList[itemIndex].done = true
               return
             } 
 
-            if (this.msgList[1].alltext === '') {
-              this.msgList[1].alltext = chunk.replace(/^\n+/, '')
+            if (this.msgList[itemIndex].alltext === '') {
+              this.msgList[itemIndex].alltext = chunk.replace(/^\n+/, '')
             } else {
-              this.msgList[1].alltext += chunk
+              this.msgList[itemIndex].alltext += chunk
             }
           }
         },
@@ -359,8 +323,17 @@
           window.toSearch = this.toSearch
           window.cleanPreResponse = this.cleanPreResponse
           window.streaming = this.streaming
+          window.ask = this.ask
+          window.callJavaErr = this.callJavaErr
         },
       })
+
+      app.use(ElementPlus);
+
+      for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+          app.component(key, component)
+      }
+
       // 挂载
       app.mount('#app')
     </script>
